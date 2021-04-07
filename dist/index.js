@@ -7,11 +7,11 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PeerFileReceive = exports.PeerFileSend = void 0;
-var simple_peer_1 = require("simple-peer");
 var PeerFileSend_1 = require("./PeerFileSend");
 exports.PeerFileSend = PeerFileSend_1.default;
 var PeerFileReceive_1 = require("./PeerFileReceive");
 exports.PeerFileReceive = PeerFileReceive_1.default;
+var simple_peer_1 = require("simple-peer");
 var SimplePeerFiles = /** @class */ (function () {
     function SimplePeerFiles() {
         this.arrivals = {};

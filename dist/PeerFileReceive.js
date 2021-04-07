@@ -89,7 +89,7 @@ var PeerFileReceive = /** @class */ (function (_super) {
                 if (_this.fileStream)
                     _this.fileStream.push(null); // EOF
                 var file = new window.File(_this.fileData, _this.fileName, {
-                    type: _this.fileType
+                    type: _this.fileType,
                 });
                 _this.emit('progress', 100.0, _this.fileSize);
                 _this.emit('done', file);
@@ -113,7 +113,7 @@ var PeerFileReceive = /** @class */ (function (_super) {
      */
     PeerFileReceive.prototype.sendPeer = function (header, data) {
         if (data === void 0) { data = null; }
-        if (!this.peer.connected)
+        if (this.peer.destroyed)
             return;
         var resp;
         if (data) {
@@ -130,7 +130,7 @@ var PeerFileReceive = /** @class */ (function (_super) {
     PeerFileReceive.prototype.createReadStream = function () {
         this.fileStream = new readable_stream_1.Readable({
             objectMode: true,
-            read: function () { } // We'll be using push when we have file chunk
+            read: function () { },
         });
         return this.fileStream;
     };

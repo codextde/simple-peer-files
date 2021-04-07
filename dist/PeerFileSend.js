@@ -105,7 +105,7 @@ var PeerFileSend = /** @class */ (function (_super) {
      */
     PeerFileSend.prototype.sendPeer = function (header, data) {
         if (data === void 0) { data = null; }
-        if (!this.peer.connected)
+        if (this.peer.destroyed)
             return;
         this.peer.send(pMsg(header, data));
     };
@@ -114,7 +114,7 @@ var PeerFileSend = /** @class */ (function (_super) {
         var meta = {
             fileName: this.file.name,
             fileSize: this.file.size,
-            fileType: this.file.type
+            fileType: this.file.type,
         };
         var metaString = JSON.stringify(meta);
         var metaByteArray = new TextEncoder().encode(metaString);
@@ -136,7 +136,7 @@ var PeerFileSend = /** @class */ (function (_super) {
         // Chunk sending
         var stream = read(this.file, {
             offset: this.offset,
-            chunkSize: CHUNK_SIZE
+            chunkSize: CHUNK_SIZE,
         });
         this.ss = new SendStream(this.file.size, this.offset);
         this.ss.on('progress', function (percentage, bytes) {

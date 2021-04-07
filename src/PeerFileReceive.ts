@@ -1,28 +1,28 @@
-import { Readable, Writable } from 'readable-stream'
-import { EventEmitter } from 'ee-ts'
-import SimplePeer from 'simple-peer'
+import { Readable, Writable } from 'readable-stream';
+import { EventEmitter } from 'ee-ts';
+import SimplePeer from 'simple-peer';
 
-import { ControlHeaders, FileStartMetadata } from './Meta'
+import { ControlHeaders, FileStartMetadata } from './Meta';
 
 interface Events {
-  progress(percentage: number, bytesSent: number): void,
+  progress(percentage: number, bytesSent: number): void;
 
-  done(receivedFile: File): void
+  done(receivedFile: File): void;
 
   // Called when receiver (this) has requested a pause
-  pause(): void
+  pause(): void;
 
   // Called when sender paused the transfer
-  paused(): void
+  paused(): void;
 
   // Called when receiver (this) has requested to resume
-  resume(): void
+  resume(): void;
 
   // Called when the receiver (this) calls cancel
-  cancel(): void
+  cancel(): void;
 
   // Called when the sender cancels the transfer
-  cancelled(): void
+  cancelled(): void;
 }
 
 class ReceiveStream extends Writable {
@@ -32,21 +32,23 @@ class ReceiveStream extends Writable {
    * @param encoding
    * @param cb
    */
-  _write (data: Uint8Array, encoding: string, cb: Function) {
+  _write(data: Uint8Array, encoding: string, cb: Function) {
     if (data[0] === ControlHeaders.FILE_START) {
-      const meta = JSON.parse(new TextDecoder().decode(data.slice(1))) as FileStartMetadata
-      this.emit('start', meta)
+      const meta = JSON.parse(
+        new TextDecoder().decode(data.slice(1))
+      ) as FileStartMetadata;
+      this.emit('start', meta);
     } else if (data[0] === ControlHeaders.FILE_CHUNK) {
-      this.emit('chunk', data.slice(1))
+      this.emit('chunk', data.slice(1));
     } else if (data[0] === ControlHeaders.TRANSFER_PAUSE) {
-      this.emit('paused')
+      this.emit('paused');
     }
 
     if (data[0] === ControlHeaders.TRANSFER_CANCEL) {
-      this.emit('cancelled')
-      this.destroy()
+      this.emit('cancelled');
+      this.destroy();
     } else {
-      cb(null) // Signal that we're ready for more data
+      cb(null); // Signal that we're ready for more data
     }
   }
 }
@@ -65,66 +67,64 @@ export default class PeerFileReceive extends EventEmitter<Events> {
   private fileStream: Readable = null;
   public fileType!: string;
 
-  constructor (peer: SimplePeer.Instance) {
-    super()
+  constructor(peer: SimplePeer.Instance) {
+    super();
 
-    this.setPeer(peer)
+    this.setPeer(peer);
   }
 
   // When peer is changed, start a new stream handler and assign events
-  setPeer (peer: SimplePeer.Instance) {
+  setPeer(peer: SimplePeer.Instance) {
     if (this.rs) {
-      this.rs.destroy()
+      this.rs.destroy();
     }
 
-    this.rs = new ReceiveStream()
-    this.peer = peer
+    this.rs = new ReceiveStream();
+    this.peer = peer;
 
-    peer.pipe(this.rs)
+    peer.pipe(this.rs);
 
-    this.rs.on('start', meta => {
-      this.fileName = meta.fileName
-      this.fileSize = meta.fileSize
-      this.fileType = meta.fileType
-      this.fileData = []
-    })
-    this.rs.on('chunk', chunk => {
-      this.fileData.push(chunk)
+    this.rs.on('start', (meta) => {
+      this.fileName = meta.fileName;
+      this.fileSize = meta.fileSize;
+      this.fileType = meta.fileType;
+      this.fileData = [];
+    });
+    this.rs.on('chunk', (chunk) => {
+      this.fileData.push(chunk);
 
       if (this.fileStream) {
-        this.fileStream.push(chunk)
+        this.fileStream.push(chunk);
       }
 
-      this.bytesReceived += chunk.byteLength
+      this.bytesReceived += chunk.byteLength;
 
       if (this.bytesReceived === this.fileSize) {
         // completed
-        this.sendPeer(ControlHeaders.FILE_END)
+        this.sendPeer(ControlHeaders.FILE_END);
 
-        if (this.fileStream) this.fileStream.push(null) // EOF
+        if (this.fileStream) this.fileStream.push(null); // EOF
 
-        const file = new window.File(
-          this.fileData,
-          this.fileName,
-          {
-            type: this.fileType
-          }
-        )
+        const file = new window.File(this.fileData, this.fileName, {
+          type: this.fileType,
+        });
 
-        this.emit('progress', 100.0, this.fileSize)
-        this.emit('done', file)
+        this.emit('progress', 100.0, this.fileSize);
+        this.emit('done', file);
       } else {
-        const percentage = parseFloat((100 * (this.bytesReceived / this.fileSize)).toFixed(3))
+        const percentage = parseFloat(
+          (100 * (this.bytesReceived / this.fileSize)).toFixed(3)
+        );
 
-        this.emit('progress', percentage, this.bytesReceived)
+        this.emit('progress', percentage, this.bytesReceived);
       }
-    })
+    });
     this.rs.on('paused', () => {
-      this.emit('paused')
-    })
+      this.emit('paused');
+    });
     this.rs.on('cancelled', () => {
-      this.emit('cancelled')
-    })
+      this.emit('cancelled');
+    });
   }
 
   /**
@@ -132,54 +132,54 @@ export default class PeerFileReceive extends EventEmitter<Events> {
    * @param header Type of message
    * @param data   Message
    */
-  private sendPeer (header: number, data: Uint8Array = null) {
-    if (!this.peer.connected) return
+  private sendPeer(header: number, data: Uint8Array = null) {
+    if (this.peer.destroyed) return;
 
-    let resp: Uint8Array
+    let resp: Uint8Array;
     if (data) {
-      resp = new Uint8Array(1 + data.length)
-      resp.set(data, 1)
+      resp = new Uint8Array(1 + data.length);
+      resp.set(data, 1);
     } else {
-      resp = new Uint8Array(1)
+      resp = new Uint8Array(1);
     }
-    resp[0] = header
+    resp[0] = header;
 
-    this.peer.send(resp)
+    this.peer.send(resp);
   }
 
   // Create a stream for receiving file data
-  createReadStream () {
+  createReadStream() {
     this.fileStream = new Readable({
       objectMode: true,
-      read () {} // We'll be using push when we have file chunk
-    })
-    return this.fileStream
+      read() {}, // We'll be using push when we have file chunk
+    });
+    return this.fileStream;
   }
 
   // Request sender to pause transfer
-  pause () {
-    this.sendPeer(ControlHeaders.TRANSFER_PAUSE)
-    this.paused = true
-    this.emit('pause')
+  pause() {
+    this.sendPeer(ControlHeaders.TRANSFER_PAUSE);
+    this.paused = true;
+    this.emit('pause');
   }
 
   // Request sender to resume sending file
-  resume () {
-    this.sendPeer(ControlHeaders.TRANSFER_RESUME)
-    this.paused = false
-    this.emit('resume')
+  resume() {
+    this.sendPeer(ControlHeaders.TRANSFER_RESUME);
+    this.paused = false;
+    this.emit('resume');
   }
 
-  cancel () {
-    this.cancelled = true
-    this.sendPeer(ControlHeaders.TRANSFER_CANCEL)
+  cancel() {
+    this.cancelled = true;
+    this.sendPeer(ControlHeaders.TRANSFER_CANCEL);
 
-    this.fileData = []
-    this.rs.destroy()
-    this.peer.destroy()
+    this.fileData = [];
+    this.rs.destroy();
+    this.peer.destroy();
 
-    if (this.fileStream) this.fileStream.destroy()
+    if (this.fileStream) this.fileStream.destroy();
 
-    this.emit('cancel')
+    this.emit('cancel');
   }
 }

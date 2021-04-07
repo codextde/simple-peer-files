@@ -4,9 +4,9 @@
  * @author   Subin Siby <https://subinsb.com>
  * @license  MPL-2.0
  */
-import SimplePeer from 'simple-peer';
 import PeerFileSend from './PeerFileSend';
 import PeerFileReceive from './PeerFileReceive';
+import SimplePeer from 'simple-peer';
 export default class SimplePeerFiles {
     private arrivals;
     send(peer: SimplePeer.Instance, fileID: string, file: File): Promise<unknown>;
